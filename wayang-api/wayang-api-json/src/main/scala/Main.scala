@@ -71,7 +71,7 @@ object Main extends ZIOAppDefault {
     }
 
   // Create HTTP route
-  val app = Routes(drawRoute, jsonRoute).toHttpApp
+  val app = Routes(drawRoute, jsonRoute)
 
   // Run it like any simple app
   override val run = Server.serve(app).provide(Server.default)
