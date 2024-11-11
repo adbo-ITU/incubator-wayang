@@ -26,5 +26,5 @@ ENV HADOOP_HOME=/opt/hadoop/hadoop-3.4.0
 ENV PATH=$PATH:$HADOOP_HOME/bin:$HADOOP_HOME/sbin
 
 # Wayang environment variables
-ENV WAYANG_HOME=/workspaces/incubator-wayang/wayang-0.7.1
+ENV WAYANG_HOME=/workspaces/incubator-wayang/wayang-assembly/target/apache-wayang-assembly-0.7.1-incubating-dist/wayang-0.7.1
 ENV PATH=$PATH:$WAYANG_HOME/bin
