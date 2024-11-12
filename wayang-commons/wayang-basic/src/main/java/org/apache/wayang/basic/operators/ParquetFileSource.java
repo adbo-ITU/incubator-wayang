@@ -35,6 +35,11 @@ public class ParquetFileSource extends UnarySource<String> {
         this.inputUrl = inputUrl;
     }
 
+    public ParquetFileSource(ParquetFileSource that) {
+        super(that);
+        this.inputUrl = that.getInputUrl();
+    }
+
     public String getInputUrl() {
         return this.inputUrl;
     }

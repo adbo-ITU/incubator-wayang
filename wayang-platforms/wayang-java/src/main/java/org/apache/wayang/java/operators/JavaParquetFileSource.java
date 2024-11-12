@@ -38,6 +38,10 @@ public class JavaParquetFileSource extends ParquetFileSource implements JavaExec
         super(inputUrl);
     }
 
+    public JavaParquetFileSource(ParquetFileSource that) {
+        super(that);
+    }
+
     @Override
     public Tuple<Collection<ExecutionLineageNode>, Collection<ChannelInstance>> evaluate(
             ChannelInstance[] inputs,
