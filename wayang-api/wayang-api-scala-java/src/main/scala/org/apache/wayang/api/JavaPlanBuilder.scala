@@ -25,7 +25,7 @@ import java.util.{Collection => JavaCollection}
 import org.apache.commons.lang3.Validate
 import org.apache.wayang.api.util.DataQuantaBuilderCache
 import org.apache.wayang.basic.data.Record
-import org.apache.wayang.basic.operators.{TableSource, TextFileSource, KafkaTopicSource, ParquetSource}
+import org.apache.wayang.basic.operators.{TableSource, TextFileSource, KafkaTopicSource, ParquetFileSource}
 import org.apache.wayang.commons.util.profiledb.model.Experiment
 import org.apache.wayang.core.api.WayangContext
 import org.apache.wayang.core.plan.wayangplan._
@@ -63,7 +63,7 @@ class JavaPlanBuilder(wayangCtx: WayangContext, jobName: String) {
   createSourceBuilder(new TextFileSource(url))(ClassTag(classOf[String]))
 
   def readParquet(url: String): UnarySourceDataQuantaBuilder[UnarySourceDataQuantaBuilder[_, String], String] =
-    createSourceBuilder(new ParquetSource(url))(ClassTag(classOf[String]))
+    createSourceBuilder(new ParquetFileSource(url))(ClassTag(classOf[String]))
 
   /**
    * Read a textmessages from a Kafka topic and provide it as a dataset of [[String]]s, one per message.

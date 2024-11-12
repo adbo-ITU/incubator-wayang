@@ -18,7 +18,7 @@
 
 package org.apache.wayang.java.operators;
 
-import org.apache.wayang.basic.operators.ParquetSource;
+import org.apache.wayang.basic.operators.ParquetFileSource;
 import org.apache.wayang.core.optimizer.OptimizationContext;
 import org.apache.wayang.core.platform.ChannelDescriptor;
 import org.apache.wayang.core.platform.ChannelInstance;
@@ -31,10 +31,10 @@ import org.slf4j.LoggerFactory;
 import java.util.Collection;
 import java.util.List;
 
-public class JavaParquetSource extends ParquetSource implements JavaExecutionOperator {
-    private static final Logger logger = LoggerFactory.getLogger(JavaParquetSource.class);
+public class JavaParquetFileSource extends ParquetFileSource implements JavaExecutionOperator {
+    private static final Logger logger = LoggerFactory.getLogger(JavaParquetFileSource.class);
 
-    public JavaParquetSource(String inputUrl) {
+    public JavaParquetFileSource(String inputUrl) {
         super(inputUrl);
     }
 
@@ -53,8 +53,8 @@ public class JavaParquetSource extends ParquetSource implements JavaExecutionOpe
     }
 
     @Override
-    public JavaParquetSource copy() {
-        return new JavaParquetSource(this.getInputUrl());
+    public JavaParquetFileSource copy() {
+        return new JavaParquetFileSource(this.getInputUrl());
     }
 
     @Override

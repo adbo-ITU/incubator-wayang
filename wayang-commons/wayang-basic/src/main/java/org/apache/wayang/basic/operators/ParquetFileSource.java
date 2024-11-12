@@ -26,11 +26,11 @@ import org.apache.logging.log4j.Logger;
 /**
  * This source reads a parquet file.
  */
-public class ParquetSource extends UnarySource<String> {
+public class ParquetFileSource extends UnarySource<String> {
     private final Logger logger = LogManager.getLogger(this.getClass());
     private final String inputUrl;
 
-    public ParquetSource(String inputUrl) {
+    public ParquetFileSource(String inputUrl) {
         super(DataSetType.createDefault(String.class));
         this.inputUrl = inputUrl;
     }
