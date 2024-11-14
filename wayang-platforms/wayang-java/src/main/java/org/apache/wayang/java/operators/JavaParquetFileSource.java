@@ -18,7 +18,6 @@
 
 package org.apache.wayang.java.operators;
 
-import org.apache.wayang.basic.data.Record;
 import org.apache.wayang.basic.operators.ParquetFileSource;
 import org.apache.wayang.core.optimizer.OptimizationContext;
 import org.apache.wayang.core.platform.ChannelDescriptor;
@@ -39,10 +38,7 @@ import org.apache.parquet.hadoop.util.HadoopInputFile;
 import org.apache.parquet.io.InputFile;
 
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Stream;
 
 public class JavaParquetFileSource extends ParquetFileSource implements JavaExecutionOperator {
@@ -69,11 +65,16 @@ public class JavaParquetFileSource extends ParquetFileSource implements JavaExec
             InputFile inputFile = HadoopInputFile.fromPath(path, new Configuration());
 
             try (ParquetReader<GenericRecord> reader = AvroParquetReader.<GenericRecord>builder(inputFile).build()) {
-                GenericRecord[] array = {
-                        reader.read(),
-                        reader.read()
-                };
-                Stream<GenericRecord> stream = Arrays.stream(array);
+                // TODO: lazy stream here rather than all-at-once in memory
+                ArrayList<GenericRecord> records = new ArrayList<>();
+
+                while (true) {
+                    GenericRecord record = reader.read();
+                    if (record == null) { break; }
+                    records.add(record);
+                }
+
+                Stream<GenericRecord> stream = records.stream();
                 ((org.apache.wayang.java.channels.StreamChannel.Instance) outputs[0]).accept(stream);
             }
         } catch (IOException e) {
