@@ -24,12 +24,16 @@ import org.apache.wayang.core.platform.ChannelDescriptor;
 import org.apache.wayang.core.platform.ChannelInstance;
 import org.apache.wayang.core.platform.lineage.ExecutionLineageNode;
 import org.apache.wayang.core.util.Tuple;
+import org.apache.wayang.java.channels.StreamChannel;
 import org.apache.wayang.java.execution.JavaExecutor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Stream;
 
 public class JavaParquetFileSource extends ParquetFileSource implements JavaExecutionOperator {
     private static final Logger logger = LoggerFactory.getLogger(JavaParquetFileSource.class);
@@ -48,12 +52,16 @@ public class JavaParquetFileSource extends ParquetFileSource implements JavaExec
             ChannelInstance[] outputs,
             JavaExecutor javaExecutor,
             OptimizationContext.OperatorContext operatorContext) {
-        throw new UnsupportedOperationException("Not implemented yet");
-    }
 
-    @Override
-    public Collection<String> getLoadProfileEstimatorConfigurationKeys() {
-        throw new UnsupportedOperationException("Not implemented yet");
+        String[] array = {"a", "b", "c", "d", "e"};
+        Stream<String> stream = Arrays.stream(array);
+        ((org.apache.wayang.java.channels.StreamChannel.Instance) outputs[0]).accept(stream);
+
+        ExecutionLineageNode mainLineageNode = new ExecutionLineageNode(operatorContext);
+
+        outputs[0].getLineage().addPredecessor(mainLineageNode);
+
+        return mainLineageNode.collectAndMark();
     }
 
     @Override
@@ -68,7 +76,7 @@ public class JavaParquetFileSource extends ParquetFileSource implements JavaExec
 
     @Override
     public List<ChannelDescriptor> getSupportedOutputChannels(int index) {
-        throw new UnsupportedOperationException("Not implemented yet");
+        return Collections.singletonList(StreamChannel.DESCRIPTOR);
     }
 
 }
