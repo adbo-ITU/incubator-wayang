@@ -18,8 +18,8 @@
 
 package org.apache.wayang.apps.parquet;
 
+import org.apache.avro.generic.GenericRecord;
 import org.apache.wayang.api.JavaPlanBuilder;
-import org.apache.wayang.basic.data.Record;
 import org.apache.wayang.core.api.WayangContext;
 import org.apache.wayang.java.Java;
 
@@ -42,7 +42,7 @@ public class ParquetTest {
                 .withJobName("ParquetVroom")
                 .withUdfJarOf(ParquetTest.class);
 
-        Collection<Record> records = planBuilder
+        Collection<GenericRecord> records = planBuilder
                 .readParquet(pathStr).withName("Load file")
                 .collect();
 

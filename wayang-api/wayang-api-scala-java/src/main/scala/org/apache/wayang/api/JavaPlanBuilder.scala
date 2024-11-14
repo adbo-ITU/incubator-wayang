@@ -21,11 +21,13 @@ package org.apache.wayang.api
  * TODO: add unitary test to the elements in the file org.apache.wayang.api.JavaPlanBuilder.scala
  * labels: unitary-test,todo
  */
+import org.apache.avro.generic.GenericRecord
+
 import java.util.{Collection => JavaCollection}
 import org.apache.commons.lang3.Validate
 import org.apache.wayang.api.util.DataQuantaBuilderCache
 import org.apache.wayang.basic.data.Record
-import org.apache.wayang.basic.operators.{TableSource, TextFileSource, KafkaTopicSource, ParquetFileSource}
+import org.apache.wayang.basic.operators.{KafkaTopicSource, ParquetFileSource, TableSource, TextFileSource}
 import org.apache.wayang.commons.util.profiledb.model.Experiment
 import org.apache.wayang.core.api.WayangContext
 import org.apache.wayang.core.plan.wayangplan._
@@ -62,8 +64,8 @@ class JavaPlanBuilder(wayangCtx: WayangContext, jobName: String) {
   def readTextFile(url: String): UnarySourceDataQuantaBuilder[UnarySourceDataQuantaBuilder[_, String], String] =
   createSourceBuilder(new TextFileSource(url))(ClassTag(classOf[String]))
 
-  def readParquet(url: String): UnarySourceDataQuantaBuilder[UnarySourceDataQuantaBuilder[_, Record], Record] =
-    createSourceBuilder(new ParquetFileSource(url))(ClassTag(classOf[Record]))
+  def readParquet(url: String): UnarySourceDataQuantaBuilder[UnarySourceDataQuantaBuilder[_, GenericRecord], GenericRecord] =
+    createSourceBuilder(new ParquetFileSource(url))(ClassTag(classOf[GenericRecord]))
 
   /**
    * Read a textmessages from a Kafka topic and provide it as a dataset of [[String]]s, one per message.

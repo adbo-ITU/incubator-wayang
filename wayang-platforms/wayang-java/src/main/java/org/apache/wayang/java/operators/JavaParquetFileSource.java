@@ -30,6 +30,15 @@ import org.apache.wayang.java.execution.JavaExecutor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.avro.generic.GenericRecord;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.parquet.avro.AvroParquetReader;
+import org.apache.parquet.hadoop.ParquetReader;
+import org.apache.parquet.hadoop.util.HadoopInputFile;
+import org.apache.parquet.io.InputFile;
+
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -54,12 +63,23 @@ public class JavaParquetFileSource extends ParquetFileSource implements JavaExec
             JavaExecutor javaExecutor,
             OptimizationContext.OperatorContext operatorContext) {
 
-        Record[] array = {
-                new Record("foo", "bar"),
-                new Record("bar2", "baz")
-        };
-        Stream<Record> stream = Arrays.stream(array);
-        ((org.apache.wayang.java.channels.StreamChannel.Instance) outputs[0]).accept(stream);
+        Path path = new Path(this.getInputUrl());
+
+        try {
+            InputFile inputFile = HadoopInputFile.fromPath(path, new Configuration());
+
+            try (ParquetReader<GenericRecord> reader = AvroParquetReader.<GenericRecord>builder(inputFile).build()) {
+                GenericRecord[] array = {
+                        reader.read(),
+                        reader.read()
+                };
+                Stream<GenericRecord> stream = Arrays.stream(array);
+                ((org.apache.wayang.java.channels.StreamChannel.Instance) outputs[0]).accept(stream);
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
 
         ExecutionLineageNode mainLineageNode = new ExecutionLineageNode(operatorContext);
 
