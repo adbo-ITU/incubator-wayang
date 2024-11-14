@@ -34,6 +34,7 @@ public class Mappings {
             new TextFileSinkMapping(),
             new ObjectFileSourceMapping(),
             new ObjectFileSinkMapping(),
+            new ParquetFileSourceMapping(),
             new MapMapping(),
             new MapPartitionsMapping(),
             new ReduceByMapping(),
