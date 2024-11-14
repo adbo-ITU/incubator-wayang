@@ -18,16 +18,14 @@
 
 package org.apache.wayang.apps.parquet;
 
-import org.apache.avro.generic.GenericRecord;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
-import org.apache.parquet.avro.AvroParquetReader;
-import org.apache.parquet.hadoop.ParquetReader;
-import org.apache.parquet.hadoop.util.HadoopInputFile;
-import org.apache.parquet.io.InputFile;
+import org.apache.wayang.api.JavaPlanBuilder;
+import org.apache.wayang.basic.data.Record;
+import org.apache.wayang.core.api.WayangContext;
+import org.apache.wayang.java.Java;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.util.Collection;
 
 public class ParquetTest {
     public static void main(String[] args) throws IOException, URISyntaxException {
@@ -38,13 +36,17 @@ public class ParquetTest {
 
         String pathStr = args[0];
 
-        Path path = new Path(pathStr);
-        InputFile inputFile = HadoopInputFile.fromPath(path, new Configuration());
+        WayangContext wayangContext = new WayangContext();
+        wayangContext.register(Java.basicPlugin());
+        JavaPlanBuilder planBuilder = new JavaPlanBuilder(wayangContext)
+                .withJobName("ParquetVroom")
+                .withUdfJarOf(ParquetTest.class);
 
-        System.out.println("Læser fraaaaaaaaaaa!!!!!!: " + inputFile.toString());
+        Collection<Record> records = planBuilder
+                .readParquet(pathStr).withName("Load file")
+                .collect();
 
-        try (ParquetReader<GenericRecord> reader = AvroParquetReader.<GenericRecord>builder(inputFile).build()) {
-            System.out.println("REKORD " + reader.read().toString());
-        }
+        System.out.printf("Found %d records:\n", records.size());
+        records.forEach(record -> System.out.printf("%s\n", record.toString()));
     }
 }

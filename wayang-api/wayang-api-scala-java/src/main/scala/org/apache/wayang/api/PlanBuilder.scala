@@ -128,7 +128,7 @@ class PlanBuilder(private[api] val wayangContext: WayangContext, private var job
     * @param url the URL of the parquet file
     * @return [[DataQuanta]] representing the file
     */
-  def readParquet(url: String): DataQuanta[String] = load(new ParquetFileSource(url))
+  def readParquet(url: String): DataQuanta[Record] = load(new ParquetFileSource(url))
 
   /**
     * Read a text file and provide it as a dataset of [[String]]s, one per line.

@@ -18,6 +18,7 @@
 
 package org.apache.wayang.java.operators;
 
+import org.apache.wayang.basic.data.Record;
 import org.apache.wayang.basic.operators.ParquetFileSource;
 import org.apache.wayang.core.optimizer.OptimizationContext;
 import org.apache.wayang.core.platform.ChannelDescriptor;
@@ -53,8 +54,11 @@ public class JavaParquetFileSource extends ParquetFileSource implements JavaExec
             JavaExecutor javaExecutor,
             OptimizationContext.OperatorContext operatorContext) {
 
-        String[] array = {"a", "b", "c", "d", "e"};
-        Stream<String> stream = Arrays.stream(array);
+        Record[] array = {
+                new Record("foo", "bar"),
+                new Record("bar2", "baz")
+        };
+        Stream<Record> stream = Arrays.stream(array);
         ((org.apache.wayang.java.channels.StreamChannel.Instance) outputs[0]).accept(stream);
 
         ExecutionLineageNode mainLineageNode = new ExecutionLineageNode(operatorContext);

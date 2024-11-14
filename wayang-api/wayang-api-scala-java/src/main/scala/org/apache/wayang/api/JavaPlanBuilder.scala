@@ -62,8 +62,8 @@ class JavaPlanBuilder(wayangCtx: WayangContext, jobName: String) {
   def readTextFile(url: String): UnarySourceDataQuantaBuilder[UnarySourceDataQuantaBuilder[_, String], String] =
   createSourceBuilder(new TextFileSource(url))(ClassTag(classOf[String]))
 
-  def readParquet(url: String): UnarySourceDataQuantaBuilder[UnarySourceDataQuantaBuilder[_, String], String] =
-    createSourceBuilder(new ParquetFileSource(url))(ClassTag(classOf[String]))
+  def readParquet(url: String): UnarySourceDataQuantaBuilder[UnarySourceDataQuantaBuilder[_, Record], Record] =
+    createSourceBuilder(new ParquetFileSource(url))(ClassTag(classOf[Record]))
 
   /**
    * Read a textmessages from a Kafka topic and provide it as a dataset of [[String]]s, one per message.
