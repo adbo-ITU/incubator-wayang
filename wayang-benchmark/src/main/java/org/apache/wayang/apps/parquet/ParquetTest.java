@@ -18,55 +18,33 @@
 
 package org.apache.wayang.apps.parquet;
 
-import org.apache.wayang.api.JavaPlanBuilder;
-import org.apache.wayang.basic.data.Tuple2;
-import org.apache.wayang.core.api.WayangContext;
-import org.apache.wayang.java.Java;
+import org.apache.avro.generic.GenericRecord;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.parquet.avro.AvroParquetReader;
+import org.apache.parquet.hadoop.ParquetReader;
+import org.apache.parquet.hadoop.util.HadoopInputFile;
+import org.apache.parquet.io.InputFile;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.util.Arrays;
-import java.util.Collection;
 
 public class ParquetTest {
-
     public static void main(String[] args) throws IOException, URISyntaxException {
-        String path = "file:///Users/adrian/coding/advanced-data-systems/project-3/wayang-parquet-test/testFile.txt";
+        if (args.length != 1) {
+            System.err.println("Usage: ParquetTest <input-path>");
+            System.exit(1);
+        }
 
-        WayangContext wayangContext = new WayangContext();
-        wayangContext.register(Java.basicPlugin());
+        String pathStr = args[0];
 
-        JavaPlanBuilder planBuilder = new JavaPlanBuilder(wayangContext)
-                .withJobName("ParquetVroom")
-                .withUdfJarOf(ParquetTest.class);
+        Path path = new Path(pathStr);
+        InputFile inputFile = HadoopInputFile.fromPath(path, new Configuration());
 
-        Collection<Tuple2<String, Integer>> wordcounts = planBuilder
-                .readParquet(path).withName("Load file")
+        System.out.println("Læser fraaaaaaaaaaa!!!!!!: " + inputFile.toString());
 
-                /* Split each line by non-word characters */
-                .flatMap(line -> Arrays.asList(line.split("\\W+")))
-                .withSelectivity(1, 100, 0.9)
-                .withName("Split words")
-
-                /* Filter empty tokens */
-                .filter(token -> !token.isEmpty())
-                .withName("Filter empty words")
-
-                /* Attach counter to each word */
-                .map(word -> new Tuple2<>(word.toLowerCase(), 1)).withName("To lower case, add counter")
-
-                // Sum up counters for every word.
-                .reduceByKey(
-                        Tuple2::getField0,
-                        (t1, t2) -> new Tuple2<>(t1.getField0(), t1.getField1() + t2.getField1())
-                )
-                .withName("Add counters")
-
-                /* Execute the plan and collect the results */
-                .collect();
-
-
-        System.out.printf("Found %d words:\n", wordcounts.size());
-        wordcounts.forEach(wc -> System.out.printf("%dx %s\n", wc.field1, wc.field0));
+        try (ParquetReader<GenericRecord> reader = AvroParquetReader.<GenericRecord>builder(inputFile).build()) {
+            System.out.println("REKORD " + reader.read().toString());
+        }
     }
 }
