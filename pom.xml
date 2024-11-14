@@ -822,7 +822,7 @@
         <dependency>
             <groupId>org.apache.parquet</groupId>
             <artifactId>parquet-avro</artifactId>
-            <version>1.14.4</version>
+            <version>1.13.1</version>
         </dependency>
 
         <!-- Coverage -->
@@ -862,8 +862,6 @@
                     <artifactId>maven-antrun-plugin</artifactId>
                     <version>3.0.0</version>
                 </plugin>
-
-
 
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
