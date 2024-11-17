@@ -41,7 +41,6 @@ import org.apache.parquet.io.InputFile;
 import java.io.IOException;
 import java.util.*;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
 public class JavaParquetFileSource extends ParquetFileSource implements JavaExecutionOperator {
     private static final Logger logger = LoggerFactory.getLogger(JavaParquetFileSource.class);
@@ -71,25 +70,13 @@ public class JavaParquetFileSource extends ParquetFileSource implements JavaExec
             InputFile inputFile = HadoopInputFile.fromPath(path, configuration);
 
             try (ParquetReader<GenericRecord> reader = AvroParquetReader.<GenericRecord>builder(inputFile).build()) {
-                Stream<GenericRecord> stream = StreamSupport.stream(Spliterators.spliteratorUnknownSize(new Iterator<GenericRecord>() {
-                    GenericRecord next = reader.read();
-
-                    @Override
-                    public boolean hasNext() {
-                        return this.next != null;
+                Stream<GenericRecord> stream = Stream.generate(() -> {
+                    try {
+                        return reader.read();
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
                     }
-
-                    @Override
-                    public GenericRecord next() {
-                        GenericRecord ret = this.next;
-                        try {
-                            this.next = reader.read();
-                        } catch (IOException e) {
-                            throw new RuntimeException(e);
-                        }
-                        return ret;
-                    }
-                }, Spliterator.IMMUTABLE), false);
+                }).takeWhile(Objects::nonNull);
 
                 ((org.apache.wayang.java.channels.StreamChannel.Instance) outputs[0]).accept(stream);
             }
