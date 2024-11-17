@@ -55,6 +55,8 @@ public class JavaParquetFileSource extends ParquetFileSource implements JavaExec
             ChannelInstance[] outputs,
             JavaExecutor javaExecutor,
             OptimizationContext.OperatorContext operatorContext) {
+        ExecutionLineageNode mainLineageNode = new ExecutionLineageNode(operatorContext);
+        outputs[0].getLineage().addPredecessor(mainLineageNode);
 
         Path path = new Path(this.getInputUrl());
 
@@ -82,11 +84,6 @@ public class JavaParquetFileSource extends ParquetFileSource implements JavaExec
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-
-
-        ExecutionLineageNode mainLineageNode = new ExecutionLineageNode(operatorContext);
-
-        outputs[0].getLineage().addPredecessor(mainLineageNode);
 
         return mainLineageNode.collectAndMark();
     }
