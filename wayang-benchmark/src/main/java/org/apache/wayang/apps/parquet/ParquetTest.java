@@ -25,7 +25,6 @@ import org.apache.wayang.basic.data.Tuple2;
 import org.apache.wayang.commons.util.profiledb.model.Experiment;
 import org.apache.wayang.commons.util.profiledb.model.Measurement;
 import org.apache.wayang.commons.util.profiledb.model.Subject;
-import org.apache.wayang.commons.util.profiledb.model.measurement.TimeMeasurement;
 import org.apache.wayang.core.api.WayangContext;
 import org.apache.wayang.java.Java;
 
@@ -42,20 +41,32 @@ public class ParquetTest {
         }
 
         String pathStr = args[0];
+        boolean shouldUseProjection = args[1].equals("yes");
 
-        System.out.printf("Starting benchmark for reading '%s'%n", pathStr);
-        long startTime = System.currentTimeMillis();
+        BenchmarkResult result = run(new Workload(pathStr, shouldUseProjection));
 
+        System.out.println("\nMeasurements:");
+        for (Measurement m : result.experiment.getMeasurements()) {
+            System.out.println("Measurement: " + m);
+        }
+        System.out.println();
+
+        System.out.printf("Processed %d records. Results:\n", result.numRecords);
+        result.results.forEach(res -> System.out.printf("%s\n", res.toString()));
+    }
+
+    private static BenchmarkResult run(Workload workload) {
         Experiment experiment = new Experiment("parquet-bench-exp", new Subject("parquet-bench", "v0.1"));
 
         WayangContext wayangContext = new WayangContext();
         wayangContext.register(Java.basicPlugin());
+
         JavaPlanBuilder planBuilder = new JavaPlanBuilder(wayangContext)
                 .withJobName("ParquetVroom")
                 .withExperiment(experiment)
                 .withUdfJarOf(ParquetTest.class);
 
-        Schema projection = args[1].equals("yes")
+        Schema projection = workload.shouldUseProjection
             ? SchemaBuilder.record("ParquetProjection")
                 .fields()
                 .optionalString("lo_shipmode")
@@ -64,7 +75,7 @@ public class ParquetTest {
 
         AtomicLong numRecords = new AtomicLong();
         Collection<Tuple2<String, Integer>> results = planBuilder
-                .readParquet(pathStr, projection).withName("Load file")
+                .readParquet(workload.inputPath, projection).withName("Load file")
                 .map((r) -> { numRecords.getAndIncrement(); return r; })
                 .map(r -> new Tuple2<>(r.get("lo_shipmode").toString(), 1)).withName("Extract, add counter")
                 .reduceByKey(
@@ -74,19 +85,30 @@ public class ParquetTest {
                 .withName("Add counters")
                 .collect();
 
-        long stopTime = System.currentTimeMillis();
-        long elapsedTime = stopTime - startTime;
-        System.out.printf("Total time %d ms%n", elapsedTime);
+        return new BenchmarkResult(workload, experiment, numRecords.get(), results);
+    }
 
-        System.out.println("\nMeasurements:");
-        for (Measurement m : experiment.getMeasurements()) {
-            if (m instanceof TimeMeasurement) {
-                System.out.println("Time measurement: " + m);
-            }
+    private static class Workload {
+        private final String inputPath;
+        private final boolean shouldUseProjection;
+
+        public Workload(String inputPath, boolean shouldUseProjection) {
+            this.inputPath = inputPath;
+            this.shouldUseProjection = shouldUseProjection;
         }
-        System.out.println();
+    }
 
-        System.out.printf("Processed %d records. Results:\n", numRecords.get());
-        results.forEach(res -> System.out.printf("%s\n", res.toString()));
+    private static class BenchmarkResult {
+        public Workload workload;
+        public Experiment experiment;
+        public long numRecords;
+        public Collection<Tuple2<String, Integer>> results;
+
+        public BenchmarkResult(Workload workload, Experiment experiment, long numRecords, Collection<Tuple2<String, Integer>> results) {
+            this.workload = workload;
+            this.experiment = experiment;
+            this.numRecords = numRecords;
+            this.results = results;
+        }
     }
 }
