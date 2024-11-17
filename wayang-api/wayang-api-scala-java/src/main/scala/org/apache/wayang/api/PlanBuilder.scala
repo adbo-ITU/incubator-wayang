@@ -21,6 +21,7 @@ package org.apache.wayang.api
  * TODO: add unitary test to the elements in the file org.apache.wayang.api.PlanBuilder.scala
  * labels: unitary-test,todo
  */
+import org.apache.avro.Schema
 import org.apache.avro.generic.GenericRecord
 import org.apache.commons.lang3.Validate
 import org.apache.wayang.api
@@ -129,7 +130,11 @@ class PlanBuilder(private[api] val wayangContext: WayangContext, private var job
     * @param url the URL of the parquet file
     * @return [[DataQuanta]] representing the file
     */
-  def readParquet(url: String): DataQuanta[GenericRecord] = load(new ParquetFileSource(url))
+  def readParquet(url: String): DataQuanta[GenericRecord] =
+    readParquet(url, null);
+
+  def readParquet(url: String, projection: Schema): DataQuanta[GenericRecord] =
+    load(new ParquetFileSource(url, projection))
 
   /**
     * Read a text file and provide it as a dataset of [[String]]s, one per line.

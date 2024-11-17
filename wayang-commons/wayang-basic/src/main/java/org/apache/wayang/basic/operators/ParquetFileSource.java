@@ -18,6 +18,7 @@
 
 package org.apache.wayang.basic.operators;
 
+import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.wayang.core.plan.wayangplan.UnarySource;
 import org.apache.wayang.core.types.DataSetType;
@@ -30,18 +31,29 @@ import org.apache.logging.log4j.Logger;
 public class ParquetFileSource extends UnarySource<GenericRecord> {
     private final Logger logger = LogManager.getLogger(this.getClass());
     private final String inputUrl;
+    private final Schema projection;
 
     public ParquetFileSource(String inputUrl) {
+        this(inputUrl, null);
+    }
+
+    public ParquetFileSource(String inputUrl, Schema projection) {
         super(DataSetType.createDefault(GenericRecord.class));
         this.inputUrl = inputUrl;
+        this.projection = projection;
     }
 
     public ParquetFileSource(ParquetFileSource that) {
         super(that);
         this.inputUrl = that.getInputUrl();
+        this.projection = that.getProjection();
     }
 
     public String getInputUrl() {
         return this.inputUrl;
+    }
+
+    public Schema getProjection() {
+        return this.projection;
     }
 }

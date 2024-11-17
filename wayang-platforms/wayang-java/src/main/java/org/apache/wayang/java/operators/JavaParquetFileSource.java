@@ -18,6 +18,7 @@
 
 package org.apache.wayang.java.operators;
 
+import org.apache.parquet.avro.AvroReadSupport;
 import org.apache.wayang.basic.operators.ParquetFileSource;
 import org.apache.wayang.core.optimizer.OptimizationContext;
 import org.apache.wayang.core.platform.ChannelDescriptor;
@@ -44,10 +45,6 @@ import java.util.stream.Stream;
 public class JavaParquetFileSource extends ParquetFileSource implements JavaExecutionOperator {
     private static final Logger logger = LoggerFactory.getLogger(JavaParquetFileSource.class);
 
-    public JavaParquetFileSource(String inputUrl) {
-        super(inputUrl);
-    }
-
     public JavaParquetFileSource(ParquetFileSource that) {
         super(that);
     }
@@ -61,8 +58,14 @@ public class JavaParquetFileSource extends ParquetFileSource implements JavaExec
 
         Path path = new Path(this.getInputUrl());
 
+        Configuration configuration = new Configuration();
+
+        if (this.getProjection() != null) {
+            configuration.set(AvroReadSupport.AVRO_REQUESTED_PROJECTION, this.getProjection().toString());
+        }
+
         try {
-            InputFile inputFile = HadoopInputFile.fromPath(path, new Configuration());
+            InputFile inputFile = HadoopInputFile.fromPath(path, configuration);
 
             try (ParquetReader<GenericRecord> reader = AvroParquetReader.<GenericRecord>builder(inputFile).build()) {
                 // TODO: lazy stream here rather than all-at-once in memory
@@ -89,11 +92,6 @@ public class JavaParquetFileSource extends ParquetFileSource implements JavaExec
     }
 
     @Override
-    public JavaParquetFileSource copy() {
-        return new JavaParquetFileSource(this.getInputUrl());
-    }
-
-    @Override
     public List<ChannelDescriptor> getSupportedInputChannels(int index) {
         throw new UnsupportedOperationException(String.format("%s does not have input channels.", this));
     }
@@ -102,5 +100,4 @@ public class JavaParquetFileSource extends ParquetFileSource implements JavaExec
     public List<ChannelDescriptor> getSupportedOutputChannels(int index) {
         return Collections.singletonList(StreamChannel.DESCRIPTOR);
     }
-
 }

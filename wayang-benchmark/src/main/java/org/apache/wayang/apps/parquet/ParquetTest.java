@@ -18,6 +18,8 @@
 
 package org.apache.wayang.apps.parquet;
 
+import org.apache.avro.Schema;
+import org.apache.avro.SchemaBuilder;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.wayang.api.JavaPlanBuilder;
 import org.apache.wayang.core.api.WayangContext;
@@ -42,8 +44,15 @@ public class ParquetTest {
                 .withJobName("ParquetVroom")
                 .withUdfJarOf(ParquetTest.class);
 
+        Schema projection = SchemaBuilder.record("ParquetProjection")
+                .fields()
+                .optionalString("model")
+                .optionalDouble("drat")
+                .optionalInt("gear")
+                .endRecord();
+
         Collection<GenericRecord> records = planBuilder
-                .readParquet(pathStr).withName("Load file")
+                .readParquet(pathStr, projection).withName("Load file")
                 .collect();
 
         System.out.printf("Found %d records:\n", records.size());
