@@ -68,9 +68,8 @@ public class JavaParquetFileSource extends ParquetFileSource implements JavaExec
                 // TODO: lazy stream here rather than all-at-once in memory
                 ArrayList<GenericRecord> records = new ArrayList<>();
 
-                while (true) {
-                    GenericRecord record = reader.read();
-                    if (record == null) { break; }
+                GenericRecord record;
+                while ((record = reader.read()) != null) {
                     records.add(record);
                 }
 
