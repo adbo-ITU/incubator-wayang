@@ -71,12 +71,18 @@ public class JavaParquetFileSource extends ParquetFileSource implements JavaExec
 
             try (ParquetReader<GenericRecord> reader = AvroParquetReader.<GenericRecord>builder(inputFile).build()) {
                 Stream<GenericRecord> stream = Stream.generate(() -> {
+                    ArrayList<GenericRecord> buf = new ArrayList<>();
                     try {
-                        return reader.read();
+                        for (int i = 0; i < 100; i++) {
+                            GenericRecord record = reader.read();
+                            if (record == null) { break; }
+                            buf.add(record);
+                        }
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
-                }).takeWhile(Objects::nonNull);
+                    return buf;
+                }).takeWhile(b -> !b.isEmpty()).flatMap(Collection::stream);
 
                 ((org.apache.wayang.java.channels.StreamChannel.Instance) outputs[0]).accept(stream);
             }
