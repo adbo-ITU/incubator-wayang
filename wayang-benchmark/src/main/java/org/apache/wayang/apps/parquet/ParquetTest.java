@@ -20,8 +20,8 @@ package org.apache.wayang.apps.parquet;
 
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
-import org.apache.avro.generic.GenericRecord;
 import org.apache.wayang.api.JavaPlanBuilder;
+import org.apache.wayang.basic.data.Tuple2;
 import org.apache.wayang.commons.util.profiledb.model.Experiment;
 import org.apache.wayang.commons.util.profiledb.model.Measurement;
 import org.apache.wayang.commons.util.profiledb.model.Subject;
@@ -32,6 +32,7 @@ import org.apache.wayang.java.Java;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.Collection;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class ParquetTest {
     public static void main(String[] args) throws IOException, URISyntaxException {
@@ -57,16 +58,20 @@ public class ParquetTest {
         Schema projection = args[1].equals("yes")
             ? SchemaBuilder.record("ParquetProjection")
                 .fields()
-                .optionalInt("lo_orderkey")
-                .optionalInt("lo_linenumber")
-                .optionalString("lo_orderpriority")
-                .optionalString("lo_shippriority")
-                .optionalString("p_name")
+                .optionalString("lo_shipmode")
                 .endRecord()
             : null;
 
-        Collection<GenericRecord> records = planBuilder
+        AtomicLong numRecords = new AtomicLong();
+        Collection<Tuple2<String, Integer>> results = planBuilder
                 .readParquet(pathStr, projection).withName("Load file")
+                .map((r) -> { numRecords.getAndIncrement(); return r; })
+                .map(r -> new Tuple2<>(r.get("lo_shipmode").toString(), 1)).withName("Extract, add counter")
+                .reduceByKey(
+                        Tuple2::getField0,
+                        (t1, t2) -> new Tuple2<>(t1.getField0(), t1.getField1() + t2.getField1())
+                )
+                .withName("Add counters")
                 .collect();
 
         long stopTime = System.currentTimeMillis();
@@ -81,7 +86,7 @@ public class ParquetTest {
         }
         System.out.println();
 
-        System.out.printf("Found %d records:\n", records.size());
-        records.stream().limit(10).forEach(record -> System.out.printf("%s\n", record.toString()));
+        System.out.printf("Processed %d records. Results:\n", numRecords.get());
+        results.forEach(res -> System.out.printf("%s\n", res.toString()));
     }
 }
