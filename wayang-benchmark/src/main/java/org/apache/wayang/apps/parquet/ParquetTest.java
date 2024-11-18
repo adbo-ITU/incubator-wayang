@@ -18,6 +18,8 @@
 
 package org.apache.wayang.apps.parquet;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
 import org.apache.wayang.api.JavaPlanBuilder;
@@ -25,6 +27,7 @@ import org.apache.wayang.basic.data.Tuple2;
 import org.apache.wayang.commons.util.profiledb.model.Experiment;
 import org.apache.wayang.commons.util.profiledb.model.Measurement;
 import org.apache.wayang.commons.util.profiledb.model.Subject;
+import org.apache.wayang.commons.util.profiledb.model.measurement.TimeMeasurement;
 import org.apache.wayang.core.api.WayangContext;
 import org.apache.wayang.java.Java;
 
@@ -46,6 +49,8 @@ public class ParquetTest {
         String filter = args.length > 1 ? args[1] : null;
         Collection<Workload> workloads = Workload.generateBenchmarksFromDir(benchDir);
 
+        JsonArray benchOutput = new JsonArray();
+
         for (Workload workload : workloads) {
             System.out.printf("%nWorkload %s with proj: %b%n", workload.inputPath, workload.shouldUseProjection);
 
@@ -56,15 +61,30 @@ public class ParquetTest {
 
             BenchmarkResult result = run(workload);
 
+            JsonObject benchItem = new JsonObject();
+            benchItem.addProperty("path", workload.inputPath);
+            benchItem.addProperty("projected", workload.shouldUseProjection);
+            benchItem.addProperty("numRecords", result.numRecords);
+
             System.out.println("\nMeasurements:");
             for (Measurement m : result.experiment.getMeasurements()) {
                 System.out.println("Measurement: " + m);
+
+                if (m.getId().equals("Execution")) {
+                    benchItem.addProperty("executionTimeMillis", ((TimeMeasurement) m).getMillis());
+                    benchItem.addProperty("executionTimePretty", TimeMeasurement.formatDuration(((TimeMeasurement) m).getMillis()));
+                }
             }
             System.out.println();
+
+            benchOutput.add(benchItem);
 
             System.out.printf("Processed %d records. Results:\n", result.numRecords);
             result.results.forEach(res -> System.out.printf("%s\n", res.toString()));
         }
+
+        System.out.println("\nBenchmark data:");
+        System.out.println(benchOutput);
     }
 
     private static BenchmarkResult run(Workload workload) {
