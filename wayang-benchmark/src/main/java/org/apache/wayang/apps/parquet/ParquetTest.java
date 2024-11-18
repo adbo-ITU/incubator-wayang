@@ -28,31 +28,37 @@ import org.apache.wayang.commons.util.profiledb.model.Subject;
 import org.apache.wayang.core.api.WayangContext;
 import org.apache.wayang.java.Java;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class ParquetTest {
     public static void main(String[] args) throws IOException, URISyntaxException {
-        if (args.length != 2 || (!args[1].equals("yes") && !args[1].equals("no"))) {
-            System.err.println("Usage: ParquetTest <input-path> <yes|no for projection>");
+        if (args.length != 1) {
+            System.err.println("Usage: ParquetTest <bench-dir-path>");
             System.exit(1);
         }
 
-        String pathStr = args[0];
-        boolean shouldUseProjection = args[1].equals("yes");
+        String benchDir = args[0];
+        Collection<Workload> workloads = Workload.generateBenchmarksFromDir(benchDir);
 
-        BenchmarkResult result = run(new Workload(pathStr, shouldUseProjection));
+        for (Workload workload : workloads) {
+            System.out.printf("%nWorkload %s with proj: %b%n", workload.inputPath, workload.shouldUseProjection);
 
-        System.out.println("\nMeasurements:");
-        for (Measurement m : result.experiment.getMeasurements()) {
-            System.out.println("Measurement: " + m);
+            BenchmarkResult result = run(workload);
+
+            System.out.println("\nMeasurements:");
+            for (Measurement m : result.experiment.getMeasurements()) {
+                System.out.println("Measurement: " + m);
+            }
+            System.out.println();
+
+            System.out.printf("Processed %d records. Results:\n", result.numRecords);
+            result.results.forEach(res -> System.out.printf("%s\n", res.toString()));
         }
-        System.out.println();
-
-        System.out.printf("Processed %d records. Results:\n", result.numRecords);
-        result.results.forEach(res -> System.out.printf("%s\n", res.toString()));
     }
 
     private static BenchmarkResult run(Workload workload) {
@@ -95,6 +101,26 @@ public class ParquetTest {
         public Workload(String inputPath, boolean shouldUseProjection) {
             this.inputPath = inputPath;
             this.shouldUseProjection = shouldUseProjection;
+        }
+
+        public static Collection<Workload> generateBenchmarksFromDir(String benchDir) {
+            File dir = new File(benchDir);
+            File[] directoryListing = dir.listFiles();
+
+            if (directoryListing == null) {
+                throw new RuntimeException("Invalid dir: " + benchDir);
+            }
+
+            ArrayList<Workload> workloads = new ArrayList<>();
+            for (File child : directoryListing) {
+                String path = "file://" + child.toString();
+                workloads.add(new Workload(path, true));
+                workloads.add(new Workload(path, false));
+            }
+
+            workloads.sort((a, b) -> (b.shouldUseProjection ? 1 : 0) - (a.shouldUseProjection ? 1 : 0));
+
+            return workloads;
         }
     }
 
