@@ -37,16 +37,22 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class ParquetTest {
     public static void main(String[] args) throws IOException, URISyntaxException {
-        if (args.length != 1) {
-            System.err.println("Usage: ParquetTest <bench-dir-path>");
+        if (args.length < 1) {
+            System.err.println("Usage: ParquetTest <bench-dir-path> [filter]");
             System.exit(1);
         }
 
         String benchDir = args[0];
+        String filter = args.length > 1 ? args[1] : null;
         Collection<Workload> workloads = Workload.generateBenchmarksFromDir(benchDir);
 
         for (Workload workload : workloads) {
             System.out.printf("%nWorkload %s with proj: %b%n", workload.inputPath, workload.shouldUseProjection);
+
+            if (filter != null && !filter.isEmpty() && !workload.inputPath.contains(filter)) {
+                System.out.println("Skipping due to filter..");
+                continue;
+            }
 
             BenchmarkResult result = run(workload);
 
