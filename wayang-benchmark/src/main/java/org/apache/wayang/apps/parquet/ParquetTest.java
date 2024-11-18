@@ -78,16 +78,30 @@ public class ParquetTest {
                 .withExperiment(experiment)
                 .withUdfJarOf(ParquetTest.class);
 
+        AtomicLong numRecords = new AtomicLong();
+        Collection<Tuple2<String, Integer>> results;
+
+        if (workload.inputPath.endsWith(".parquet")) {
+            results = runParquet(workload, planBuilder, numRecords);
+        } else if (workload.inputPath.endsWith(".csv")) {
+            results = runCsv(workload, planBuilder, numRecords);
+        } else {
+            throw new RuntimeException("Unknown file format: " + workload.inputPath);
+        }
+
+        return new BenchmarkResult(workload, experiment, numRecords.get(), results);
+    }
+
+    private static Collection<Tuple2<String, Integer>> runParquet(Workload workload, JavaPlanBuilder planBuilder, AtomicLong numRecords) {
         Schema projection = workload.shouldUseProjection
-            ? SchemaBuilder.record("ParquetProjection")
+                ? SchemaBuilder.record("ParquetProjection")
                 .fields()
                 .optionalString("lo_shipmode")
                 .endRecord()
-            : null;
+                : null;
 
-        AtomicLong numRecords = new AtomicLong();
-        Collection<Tuple2<String, Integer>> results = planBuilder
-                .readParquet(workload.inputPath, projection).withName("Load file")
+        return planBuilder
+                .readParquet(workload.inputPath, projection).withName("Load parquet file")
                 .map((r) -> { numRecords.getAndIncrement(); return r; })
                 .map(r -> new Tuple2<>(r.get("lo_shipmode").toString(), 1)).withName("Extract, add counter")
                 .reduceByKey(
@@ -96,8 +110,21 @@ public class ParquetTest {
                 )
                 .withName("Add counters")
                 .collect();
+    }
 
-        return new BenchmarkResult(workload, experiment, numRecords.get(), results);
+    private static Collection<Tuple2<String, Integer>> runCsv(Workload workload, JavaPlanBuilder planBuilder, AtomicLong numRecords) {
+        return planBuilder
+                .readTextFile(workload.inputPath).withName("Load text file")
+                .filter(row -> !row.startsWith("lo_orderkey")).withName("Remove headers").withName("Remove headers")
+                .map((r) -> { numRecords.getAndIncrement(); return r; })
+                .map(line -> line.split(","))
+                .map(r -> new Tuple2<>(r[16], 1)).withName("Extract, add counter")
+                .reduceByKey(
+                        Tuple2::getField0,
+                        (t1, t2) -> new Tuple2<>(t1.getField0(), t1.getField1() + t2.getField1())
+                )
+                .withName("Add counters")
+                .collect();
     }
 
     private static class Workload {
@@ -120,8 +147,11 @@ public class ParquetTest {
             ArrayList<Workload> workloads = new ArrayList<>();
             for (File child : directoryListing) {
                 String path = "file://" + child.toString();
-                workloads.add(new Workload(path, true));
                 workloads.add(new Workload(path, false));
+
+                if (path.endsWith(".parquet")) {
+                    workloads.add(new Workload(path, true));
+                }
             }
 
             workloads.sort((a, b) -> (b.shouldUseProjection ? 1 : 0) - (a.shouldUseProjection ? 1 : 0));
