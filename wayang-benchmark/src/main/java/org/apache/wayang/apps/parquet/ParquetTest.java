@@ -40,54 +40,66 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class ParquetTest {
     public static void main(String[] args) throws IOException, URISyntaxException {
-        if (args.length < 1) {
-            System.err.println("Usage: ParquetTest <bench-dir-path> [filter]");
+        if (args.length < 2) {
+            System.err.println("Usage: ParquetTest <bench-dir-path> <workload> [filter]");
             System.exit(1);
         }
 
         String benchDir = args[0];
-        String filter = args.length > 1 ? args[1] : null;
-        Collection<Workload> workloads = Workload.generateBenchmarksFromDir(benchDir);
+        String workload = args[1];
+        String filter = args.length > 2 ? args[2] : null;
+        Collection<BenchConf> benchConfs = BenchConf.generateBenchmarksFromDir(benchDir, workload);
+
+        if (filter != null) {
+            System.out.println("Filter: " + filter);
+        }
 
         JsonArray benchOutput = new JsonArray();
 
-        for (Workload workload : workloads) {
-            System.out.printf("%nWorkload %s with proj: %b%n", workload.inputPath, workload.shouldUseProjection);
+        for (int i = 0; i < 4; i++) {
+            for (BenchConf benchConf : benchConfs) {
+                System.out.printf("%nBenchConf %s with proj: %b%n", benchConf.inputPath, benchConf.shouldUseProjection);
 
-            if (filter != null && !filter.isEmpty() && !workload.inputPath.contains(filter)) {
-                System.out.println("Skipping due to filter..");
-                continue;
-            }
-
-            BenchmarkResult result = run(workload);
-
-            JsonObject benchItem = new JsonObject();
-            benchItem.addProperty("path", workload.inputPath);
-            benchItem.addProperty("projected", workload.shouldUseProjection);
-            benchItem.addProperty("numRecords", result.numRecords);
-
-            System.out.println("\nMeasurements:");
-            for (Measurement m : result.experiment.getMeasurements()) {
-                System.out.println("Measurement: " + m);
-
-                if (m.getId().equals("Execution")) {
-                    benchItem.addProperty("executionTimeMillis", ((TimeMeasurement) m).getMillis());
-                    benchItem.addProperty("executionTimePretty", TimeMeasurement.formatDuration(((TimeMeasurement) m).getMillis()));
+                if (filter != null && !filter.isEmpty() && !benchConf.inputPath.contains(filter)) {
+                    System.out.println("Skipping due to filter..");
+                    continue;
                 }
+
+                BenchmarkResult result = run(benchConf);
+
+                JsonObject benchItem = new JsonObject();
+                benchItem.addProperty("path", benchConf.inputPath);
+                benchItem.addProperty("workload", benchConf.workload);
+                benchItem.addProperty("projected", benchConf.shouldUseProjection);
+                benchItem.addProperty("numRecords", result.numRecords);
+                benchItem.addProperty("iteration", i);
+
+                System.out.println("\nMeasurements:");
+                for (Measurement m : result.experiment.getMeasurements()) {
+                    System.out.println("Measurement: " + m);
+
+                    if (m.getId().equals("Execution")) {
+                        benchItem.addProperty("executionTimeMillis", ((TimeMeasurement) m).getMillis());
+                        benchItem.addProperty("executionTimePretty", TimeMeasurement.formatDuration(((TimeMeasurement) m).getMillis()));
+                    }
+                }
+                System.out.println();
+
+                benchOutput.add(benchItem);
+
+                System.out.printf("Processed %d records. Results:\n", result.numRecords);
+                result.results.forEach(res -> System.out.printf("%s\n", res.toString()));
+
+                System.out.println("Intermediate bench output:");
+                System.out.println(benchOutput);
             }
-            System.out.println();
 
-            benchOutput.add(benchItem);
-
-            System.out.printf("Processed %d records. Results:\n", result.numRecords);
-            result.results.forEach(res -> System.out.printf("%s\n", res.toString()));
+            System.out.println("\nBenchmark data:");
+            System.out.println(benchOutput);
         }
-
-        System.out.println("\nBenchmark data:");
-        System.out.println(benchOutput);
     }
 
-    private static BenchmarkResult run(Workload workload) {
+    private static BenchmarkResult run(BenchConf benchConf) {
         Experiment experiment = new Experiment("parquet-bench-exp", new Subject("parquet-bench", "v0.1"));
 
         WayangContext wayangContext = new WayangContext();
@@ -101,19 +113,34 @@ public class ParquetTest {
         AtomicLong numRecords = new AtomicLong();
         Collection<Tuple2<String, Integer>> results;
 
-        if (workload.inputPath.endsWith(".parquet")) {
-            results = runParquet(workload, planBuilder, numRecords);
-        } else if (workload.inputPath.endsWith(".csv")) {
-            results = runCsv(workload, planBuilder, numRecords);
-        } else {
-            throw new RuntimeException("Unknown file format: " + workload.inputPath);
+        switch (benchConf.workload) {
+            case "ssb":
+                if (benchConf.inputPath.endsWith(".parquet")) {
+                    results = runParquetSsb(benchConf, planBuilder, numRecords);
+                } else if (benchConf.inputPath.endsWith(".csv")) {
+                    results = runCsvSsb(benchConf, planBuilder, numRecords);
+                } else {
+                    throw new RuntimeException("Unknown file format: " + benchConf.inputPath);
+                }
+                break;
+            case "yelp":
+                if (benchConf.inputPath.endsWith(".parquet")) {
+                    results = runParquetYelp(benchConf, planBuilder, numRecords);
+                } else if (benchConf.inputPath.endsWith(".csv")) {
+                    results = runCsvYelp(benchConf, planBuilder, numRecords);
+                } else {
+                    throw new RuntimeException("Unknown file format: " + benchConf.inputPath);
+                }
+                break;
+            default:
+                throw new IllegalArgumentException("Unknown workload: " + benchConf.workload);
         }
 
-        return new BenchmarkResult(workload, experiment, numRecords.get(), results);
+        return new BenchmarkResult(benchConf, experiment, numRecords.get(), results);
     }
 
-    private static Collection<Tuple2<String, Integer>> runParquet(Workload workload, JavaPlanBuilder planBuilder, AtomicLong numRecords) {
-        Schema projection = workload.shouldUseProjection
+    private static Collection<Tuple2<String, Integer>> runParquetSsb(BenchConf benchConf, JavaPlanBuilder planBuilder, AtomicLong numRecords) {
+        Schema projection = benchConf.shouldUseProjection
                 ? SchemaBuilder.record("ParquetProjection")
                 .fields()
                 .optionalString("lo_shipmode")
@@ -121,7 +148,7 @@ public class ParquetTest {
                 : null;
 
         return planBuilder
-                .readParquet(workload.inputPath, projection).withName("Load parquet file")
+                .readParquet(benchConf.inputPath, projection).withName("Load parquet file")
                 .map((r) -> { numRecords.getAndIncrement(); return r; })
                 .map(r -> new Tuple2<>(r.get("lo_shipmode").toString(), 1)).withName("Extract, add counter")
                 .reduceByKey(
@@ -132,9 +159,9 @@ public class ParquetTest {
                 .collect();
     }
 
-    private static Collection<Tuple2<String, Integer>> runCsv(Workload workload, JavaPlanBuilder planBuilder, AtomicLong numRecords) {
+    private static Collection<Tuple2<String, Integer>> runCsvSsb(BenchConf benchConf, JavaPlanBuilder planBuilder, AtomicLong numRecords) {
         return planBuilder
-                .readTextFile(workload.inputPath).withName("Load text file")
+                .readTextFile(benchConf.inputPath).withName("Load text file")
                 .filter(row -> !row.startsWith("lo_orderkey")).withName("Remove headers").withName("Remove headers")
                 .map((r) -> { numRecords.getAndIncrement(); return r; })
                 .map(line -> line.split(","))
@@ -147,16 +174,67 @@ public class ParquetTest {
                 .collect();
     }
 
-    private static class Workload {
+    private static Collection<Tuple2<String, Integer>> runParquetYelp(BenchConf benchConf, JavaPlanBuilder planBuilder, AtomicLong numRecords) {
+        Schema projection = benchConf.shouldUseProjection
+                ? SchemaBuilder.record("ParquetProjection")
+                .fields()
+                .optionalLong("label")
+                .optionalString("text")
+                .endRecord()
+                : null;
+
+        Collection<Tuple2<Long, Integer>> tmpRes = planBuilder
+                .readParquet(benchConf.inputPath, projection).withName("Load parquet file")
+                .map((r) -> { numRecords.getAndIncrement(); return r; })
+                .map(r -> new Tuple2<>(((Long) r.get("label")), 1)).withName("Extract, add counter")
+                .reduceByKey(
+                        Tuple2::getField0,
+                        (t1, t2) -> new Tuple2<>(t1.getField0(), t1.getField1() + t2.getField1())
+                )
+                .withName("Add counters")
+                .collect();
+
+        Collection<Tuple2<String, Integer>> res = new ArrayList<>();
+        for (Tuple2<Long, Integer> r : tmpRes) {
+            res.add(new Tuple2<>(r.getField0().toString(), r.getField1()));
+        }
+        return res;
+    }
+
+    private static Collection<Tuple2<String, Integer>> runCsvYelp(BenchConf benchConf, JavaPlanBuilder planBuilder, AtomicLong numRecords) {
+        Collection<Tuple2<Long, Integer>> tmpRes = planBuilder
+                .readTextFile(benchConf.inputPath).withName("Load text file")
+                .filter(row -> !row.startsWith("label")).withName("Remove headers").withName("Remove headers")
+                .map((r) -> { numRecords.getAndIncrement(); return r; })
+                .map(line -> line.split(","))
+                .map(r -> new Tuple2<>(Long.parseLong(r[0]), 1)).withName("Extract, add counter")
+                .reduceByKey(
+                        Tuple2::getField0,
+                        (t1, t2) -> new Tuple2<>(t1.getField0(), t1.getField1() + t2.getField1())
+                )
+                .withName("Add counters")
+                .collect();
+
+        Collection<Tuple2<String, Integer>> res = new ArrayList<>();
+        for (Tuple2<Long, Integer> r : tmpRes) {
+            res.add(new Tuple2<>(r.getField0().toString(), r.getField1()));
+        }
+        return res;
+    }
+
+
+    private static class BenchConf {
         private final String inputPath;
+        private final String workload;
         private final boolean shouldUseProjection;
 
-        public Workload(String inputPath, boolean shouldUseProjection) {
+        public BenchConf(String inputPath, boolean shouldUseProjection, String workload) {
             this.inputPath = inputPath;
             this.shouldUseProjection = shouldUseProjection;
+            this.workload = workload;
         }
 
-        public static Collection<Workload> generateBenchmarksFromDir(String benchDir) {
+        public static Collection<BenchConf> generateBenchmarksFromDir(String benchDir, String workload) {
             File dir = new File(benchDir);
             File[] directoryListing = dir.listFiles();
 
@@ -164,30 +242,30 @@ public class ParquetTest {
                 throw new RuntimeException("Invalid dir: " + benchDir);
             }
 
-            ArrayList<Workload> workloads = new ArrayList<>();
+            ArrayList<BenchConf> benchConfs = new ArrayList<>();
             for (File child : directoryListing) {
                 String path = "file://" + child.toString();
-                workloads.add(new Workload(path, false));
+                benchConfs.add(new BenchConf(path, false, workload));
 
                 if (path.endsWith(".parquet")) {
-                    workloads.add(new Workload(path, true));
+                    benchConfs.add(new BenchConf(path, true, workload));
                 }
             }
 
-            workloads.sort((a, b) -> (b.shouldUseProjection ? 1 : 0) - (a.shouldUseProjection ? 1 : 0));
+            benchConfs.sort((a, b) -> (b.shouldUseProjection ? 1 : 0) - (a.shouldUseProjection ? 1 : 0));
 
-            return workloads;
+            return benchConfs;
         }
     }
 
     private static class BenchmarkResult {
-        public Workload workload;
+        public BenchConf benchConf;
         public Experiment experiment;
         public long numRecords;
         public Collection<Tuple2<String, Integer>> results;
 
-        public BenchmarkResult(Workload workload, Experiment experiment, long numRecords, Collection<Tuple2<String, Integer>> results) {
-            this.workload = workload;
+        public BenchmarkResult(BenchConf benchConf, Experiment experiment, long numRecords, Collection<Tuple2<String, Integer>> results) {
+            this.benchConf = benchConf;
             this.experiment = experiment;
             this.numRecords = numRecords;
             this.results = results;
